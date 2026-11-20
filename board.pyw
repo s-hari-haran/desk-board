@@ -33,6 +33,8 @@ IMAGES = APP / "images"
 IMAGES.mkdir(parents=True, exist_ok=True)
 CLIP_PS1 = Path(__file__).resolve().parent / "clip_image.ps1"
 QUOTES = Path(__file__).resolve().parent / "quotes.txt"
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import procs  # noqa: E402  (memory panel)
 TEST = bool(os.environ.get("DESKBOARD_TEST"))
 
 # ---------------------------------------------------------------- windows plumbing
@@ -363,6 +365,9 @@ class DeskBoard:
             user32.ShowWindow(self.hwnd, 4)
             self.push_bottom()
         self.c.itemconfigure("clock", text=dt.datetime.now().strftime("%H:%M"))
+        self.ticks = getattr(self, "ticks", 0) + 1
+        if self.ticks % 5 == 0:
+            self.update_mem_pill()
         self.root.after(1000, self.every_second)
 
     def every_20s(self):
@@ -598,6 +603,7 @@ class DeskBoard:
             pills_left = cb[0] - s(12)
         else:
             pills_left = hb[0] - s(12)
+        pills_left = self.draw_mem_pill(pills_left - s(10))
 
         self.quote_bottom = self.draw_quote(hdr_right + s(56), pills_left - s(56))
         self.draw_filter()
@@ -1374,6 +1380,8 @@ class DeskBoard:
             return self.quit()
         if "act_clear" in tags:
             return self.clear_menu()
+        if "act_mem" in tags:
+            return self.mem_panel()
         if "act_all" in tags:
             return self.set_filter([])
         if "act_filter" in tags and tg:
@@ -1642,6 +1650,138 @@ class DeskBoard:
         self.save()
         self.render()
         self.note(f"Removed the {g} tag.")
+
+    # ------------------------------------------------ memory: pill on the board + panel to close heavy apps
+    def mem_colours(self, pct):
+        if pct >= 90:
+            return RED, "#ffffff", RED
+        if pct >= 75:
+            return "#4a3a14", "#f2b33d", "#f2b33d"
+        return DESK_HI, ON_DESK_2, GREEN
+
+    def draw_mem_pill(self, right):
+        c, s = self.c, self.s
+        w = self.f_ui.measure("memory 100%") + s(40)
+        left = right - w
+        tg = ("ui", "act_mem")
+        lh = self.f_ui.metrics("linespace")
+        top = s(22) - s(6)
+        self.rrect(left, top, right, top + lh + s(12), s(14), fill=DESK_HI, outline="", tags=tg + ("mem_bg",))
+        cy = top + s(6) + lh / 2
+        c.create_oval(left + s(14), cy - s(4), left + s(22), cy + s(4), fill=GREEN, outline="", tags=tg + ("mem_dot",))
+        c.create_text(left + s(30), cy, anchor="w", text="memory", font=self.f_ui, fill=ON_DESK_2, tags=tg + ("mem_txt",))
+        self.update_mem_pill()
+        return left
+
+    def update_mem_pill(self):
+        pct = procs.memory_status()[0]
+        bg, fg, dot = self.mem_colours(pct)
+        self.c.itemconfigure("mem_bg", fill=bg)
+        self.c.itemconfigure("mem_dot", fill=dot if pct < 90 else "#ffffff")
+        self.c.itemconfigure("mem_txt", text=f"memory {pct}%", fill=fg)
+
+    def mem_panel(self):
+        self.close_popup()
+        s = self.s
+        p, cv, _ = self.rounded_window(DESK_HI)
+        self.popup = p
+        self.mem_state = {}
+        cv.bind("<Button-1>", lambda e: self.mem_click(p, cv))
+        p.bind("<Escape>", lambda e: self.close_popup())
+        self.draw_mem(p, cv)
+        x0, y0, x1, y1 = self.c.bbox("mem_bg")
+        pw = int(cv["width"])
+        p.geometry(f"+{int(self.left + min(x1, self.W - s(16)) - pw)}+{int(self.top + y1 + s(10))}")
+        p.focus_force()
+        p.bind("<FocusOut>", lambda e: self.root.after(80, lambda: self.popup is p and p.focus_get() is None and self.close_popup()))
+
+        def tick():
+            if self.popup is p:
+                self.draw_mem(p, cv)
+                self.update_mem_pill()
+                self.root.after(2000, tick)
+        self.root.after(2000, tick)
+
+    def draw_mem(self, p, cv):
+        s = self.s
+        pct, used, total = procs.memory_status()
+        apps = procs.top_apps(10, skip={os.getpid()})
+        now = dt.datetime.now().timestamp()
+        for key, stt in list(self.mem_state.items()):   # follow apps we asked to close
+            if not procs.alive(stt["pids"]):
+                del self.mem_state[key]
+            elif stt["stage"] == "closing" and now - stt["t"] > 3:
+                stt["stage"] = "force"
+        self.mem_apps = {a["key"]: a for a in apps}
+
+        PW, pad = s(470), s(22)
+        cv.delete("all")
+        bar = self.mem_colours(pct)[2]
+        y = pad
+        cv.create_text(pad, y, anchor="nw", text="Memory", font=self.f_card_b, fill=ON_DESK)
+        cv.create_text(PW - pad, y + s(3), anchor="ne", text=f"{pct}% used  ·  {procs.nice_size(used)} of {procs.nice_size(total)}",
+                       font=self.f_mono_s, fill=ON_DESK_2)
+        y += s(32)
+        self.rrect_on(cv, pad, y, PW - pad, y + s(8), s(4), fill=RULE)
+        self.rrect_on(cv, pad, y, pad + max(s(8), (PW - 2 * pad) * pct / 100), y + s(8), s(4), fill=bar)
+        y += s(26)
+        cv.create_text(pad, y, anchor="nw", text="APPS USING THE MOST", font=self.f_mono_s, fill=ON_DESK_3)
+        y += s(24)
+        top = max([a["bytes"] for a in apps] or [1])
+        for a in apps:
+            stage = self.mem_state.get(a["key"], {}).get("stage")
+            cv.create_text(pad, y, anchor="nw", text=a["name"], font=self.f_ui, fill=ON_DESK)
+            n = len(a["pids"])
+            if n > 1:
+                cv.create_text(pad + self.f_ui.measure(a["name"]) + s(8), y + s(2), anchor="nw", text=f"{n} processes",
+                               font=self.f_mono_s, fill=ON_DESK_3)
+            barw = PW - 2 * pad - s(190)
+            self.rrect_on(cv, pad, y + s(24), pad + max(s(4), barw * a["bytes"] / top), y + s(28), s(2),
+                          fill="#5d7fd9" if a["bytes"] < 1024 ** 3 else FLAME)
+            cv.create_text(PW - pad - s(96), y + s(13), anchor="e", text=procs.nice_size(a["bytes"]), font=self.f_mono,
+                           fill=ON_DESK_2)
+            label, bfill, bfg = {"closing": ("Closing…", DESK, ON_DESK_3), "force": ("Force quit", RED, "#ffffff"),
+                                 "admin": ("Needs admin", DESK, ON_DESK_3)}.get(stage, ("End", RULE, ON_DESK))
+            tg = ("btn", f"app:{a['key']}")
+            self.rrect_on(cv, PW - pad - s(84), y + s(1), PW - pad, y + s(27), s(13), fill=bfill, tags=tg)
+            cv.create_text(PW - pad - s(42), y + s(14), text=label, font=self.f_mono_s, fill=bfg, tags=tg)
+            y += s(42)
+        y += s(4)
+        cv.create_line(pad, y, PW - pad, y, fill=RULE)
+        y += s(12)
+        cv.create_text(pad, y, anchor="nw", text="End closes the app like its \u2715, so it can still ask to save.",
+                       font=self.f_mono_s, fill=ON_DESK_3)
+        cv.create_text(PW - pad, y + s(22), anchor="ne", text="Windows Task Manager \u2197", font=self.f_mono_s, fill="#8fa8ff",
+                       tags=("btn", "taskmgr"))
+        H = y + s(22) + s(16) + pad
+        cv.config(width=PW, height=H)
+        bgp = cv.create_polygon(self.rr_pts(0, 0, PW, H, s(18)), smooth=True, splinesteps=12, fill=DESK_HI, outline="")
+        cv.tag_lower(bgp)
+        p.geometry(f"{PW}x{H}")
+
+    def rrect_on(self, cv, x0, y0, x1, y1, r, fill, tags=()):
+        return cv.create_polygon(self.rr_pts(x0, y0, x1, y1, r), smooth=True, splinesteps=8, fill=fill, outline="", tags=tags)
+
+    def mem_click(self, p, cv):
+        tags = cv.gettags("current")
+        if "taskmgr" in tags:
+            self.close_popup()
+            return os.startfile("taskmgr.exe")
+        key = next((t[4:] for t in tags if t.startswith("app:")), None)
+        if key is None:
+            return
+        a = self.mem_apps.get(key)
+        stt = self.mem_state.get(key)
+        if stt and stt["stage"] == "force":
+            if procs.force_end(procs.alive(stt["pids"])):
+                stt["stage"] = "admin"
+        elif a and not stt:
+            if procs.close_app(a["pids"]):
+                self.mem_state[key] = {"stage": "closing", "t": dt.datetime.now().timestamp(), "pids": list(a["pids"])}
+            elif procs.force_end(a["pids"]):     # no window to close (a background app): end it
+                self.mem_state[key] = {"stage": "admin", "t": 0, "pids": list(a["pids"])}
+        self.draw_mem(p, cv)
+        self.root.after(400, lambda: self.popup is p and self.draw_mem(p, cv))
 
     # ------------------------------------------------ rounded pop-up windows
     def rounded_window(self, bg):

@@ -39,6 +39,7 @@ That's it. Desk Board opens now, appears in your Start menu, and starts by itsel
 | Add an image | Copy a screenshot and press **Ctrl + V** in the box |
 | Show one group | Click a tag at the top right |
 | See it over your windows | Press **Alt + `** (the key above Tab). **Esc** sends it back |
+| Free up memory | Click **memory %** at the top right, then **End** next to a heavy app |
 | More options | **Right-click** an empty spot on the board |
 | Close it | Click **hide** at the top right |
 
@@ -61,6 +62,10 @@ That's it. Desk Board opens now, appears in your Start menu, and starts by itsel
 - A **streak** counts the days in a row you finish at least one task.
 - A new **quote** shows at the top each day. Edit `quotes.txt` to add your own (one per line: `quote | who said it`).
 - **clear** at the top right removes finished cards or the whole board. **Undo** brings them back.
+
+### Memory
+
+The **memory** pill at the top right shows how full your RAM is. It turns amber at 75% and red at 90%. Click it to see the apps using the most memory, with all of Chrome's (or any app's) processes added together. **End** closes an app the normal way, like clicking its X, so it can still ask you to save. If the app doesn't close, the button becomes **Force quit**. Windows system processes are never listed, so you can't end something important by accident.
 
 ---
 
@@ -96,7 +101,7 @@ It covers your main screen.
 
 ## How it works (for the curious)
 
-It's one file, `board.pyw`, built on `tkinter` (bundled with Python). It uses a few Windows calls through `ctypes` to keep the window behind everything else and to register the Alt + ` hotkey. Pasting images uses a small PowerShell helper, `clip_image.ps1`, so no image libraries are needed.
+It's one file, `board.pyw`, built on `tkinter` (bundled with Python). It uses a few Windows calls through `ctypes` to keep the window behind everything else and to register the Alt + ` hotkey. Pasting images uses a small PowerShell helper, `clip_image.ps1`, so no image libraries are needed. The memory panel lives in `procs.py`: plain Windows calls, no `psutil`.
 
 Pull requests and ideas are welcome.
 
