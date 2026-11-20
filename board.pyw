@@ -288,7 +288,9 @@ class DeskBoard:
         self.settings = load_json(SETTINGS, {})
         self.settings.setdefault("tags", {})
         self.settings.setdefault("filter", [])
-        self.settings.setdefault("hotkeys", dict(DEFAULT_HOTKEYS))   # change them here, then restart Desk Board
+        if "hotkeys" not in self.settings:   # written to settings.json so it's easy to find and change
+            self.settings["hotkeys"] = dict(DEFAULT_HOTKEYS)
+            save_json(SETTINGS, self.settings)
         self.date = None
         self.tasks = []
         self.load_today()
