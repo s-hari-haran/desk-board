@@ -39,7 +39,7 @@ That's it. Desk Board opens now, appears in your Start menu, and starts by itsel
 | Add an image | Copy a screenshot and press **Ctrl + V** in the box |
 | Show one group | Click a tag at the top right |
 | See it over your windows | Press **Alt + `** (the key above Tab). **Esc** sends it back |
-| Free up memory | Click **memory %** at the top right, then **End** next to a heavy app |
+| Free up memory | Press **Alt + Shift + `**, or click **memory %** at the top right |
 | More options | **Right-click** an empty spot on the board |
 | Close it | Click **hide** at the top right |
 
@@ -66,6 +66,18 @@ That's it. Desk Board opens now, appears in your Start menu, and starts by itsel
 ### Memory
 
 The **memory** pill at the top right shows how full your RAM is. It turns amber at 75% and red at 90%. Click it to see the apps using the most memory, with all of Chrome's (or any app's) processes added together. **End** closes an app the normal way, like clicking its X, so it can still ask you to save. If the app doesn't close, the button becomes **Force quit**. Windows system processes are never listed, so you can't end something important by accident.
+
+Browsers (Chrome, Edge, Brave, Vivaldi, Opera, Firefox) also list their **open tabs**, with the memory each tab uses when the browser reports it, and a **✕** to close a tab. Scroll the panel with the mouse wheel when the list is long.
+
+### Change the shortcuts
+
+Open `settings.json` in the Desk Board folder and edit:
+
+```json
+"hotkeys": { "board": "Alt + `", "memory": "Alt + Shift + `" }
+```
+
+Use any mix of `Ctrl`, `Alt`, `Shift`, `Win` with a letter, number, `F1`–`F12` or `` ` ``, then restart Desk Board. Windows keeps a few for itself (Ctrl + Shift + Esc always opens Task Manager), so if a shortcut doesn't work, pick another.
 
 ---
 
@@ -101,7 +113,7 @@ It covers your main screen.
 
 ## How it works (for the curious)
 
-It's one file, `board.pyw`, built on `tkinter` (bundled with Python). It uses a few Windows calls through `ctypes` to keep the window behind everything else and to register the Alt + ` hotkey. Pasting images uses a small PowerShell helper, `clip_image.ps1`, so no image libraries are needed. The memory panel lives in `procs.py`: plain Windows calls, no `psutil`.
+It's one file, `board.pyw`, built on `tkinter` (bundled with Python). It uses a few Windows calls through `ctypes` to keep the window behind everything else and to register the Alt + ` hotkey. Pasting images uses a small PowerShell helper, `clip_image.ps1`, so no image libraries are needed. The memory panel lives in `procs.py`: plain Windows calls, no `psutil`. Browser tabs are read and closed by `tabs.ps1` through Windows UI Automation (what screen readers use), only while the panel is open.
 
 Pull requests and ideas are welcome.
 

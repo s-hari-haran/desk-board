@@ -33,6 +33,8 @@ IMAGES = APP / "images"
 IMAGES.mkdir(parents=True, exist_ok=True)
 CLIP_PS1 = Path(__file__).resolve().parent / "clip_image.ps1"
 QUOTES = Path(__file__).resolve().parent / "quotes.txt"
+TABS_PS1 = Path(__file__).resolve().parent / "tabs.ps1"
+TAB_MEM_RE = re.compile(r"\s-\s(?:high memory usage|memory usage)\s-\s([\d.,]+)\s?([KMG])B", re.I)
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import procs  # noqa: E402  (memory panel)
 TEST = bool(os.environ.get("DESKBOARD_TEST"))
@@ -65,6 +67,32 @@ user32.GetForegroundWindow.restype = wintypes.HWND
 user32.SetForegroundWindow.argtypes = [wintypes.HWND]
 user32.RegisterHotKey.argtypes = [wintypes.HWND, ctypes.c_int, ctypes.c_uint, ctypes.c_uint]
 HOTKEY_TEXT = "Alt + `"
+MOD_BITS = {"alt": 0x1, "ctrl": 0x2, "control": 0x2, "shift": 0x4, "win": 0x8}
+KEY_CODES = {"`": 0xC0, "esc": 0x1B, "space": 0x20, "tab": 0x09, "enter": 0x0D, "-": 0xBD, "=": 0xBB,
+             "[": 0xDB, "]": 0xDD, ";": 0xBA, "'": 0xDE, ",": 0xBC, ".": 0xBE, "/": 0xBF, "\\": 0xDC}
+DEFAULT_HOTKEYS = {"board": "Alt + `", "memory": "Alt + Shift + `"}
+
+
+def parse_hotkey(text):
+    """"Ctrl + Alt + M" -> (modifiers, virtual key), or None if it can't be read."""
+    parts = [x.strip().lower() for x in re.split(r"\s*\+\s*(?=.)", text.strip()) if x.strip()]
+    if not parts:
+        return None
+    mods = 0
+    for m in parts[:-1]:
+        if m not in MOD_BITS:
+            return None
+        mods |= MOD_BITS[m]
+    k = parts[-1]
+    if k in KEY_CODES:
+        vk = KEY_CODES[k]
+    elif len(k) == 1 and k.isalnum():
+        vk = ord(k.upper())
+    elif re.fullmatch(r"f([1-9]|1[0-2])", k):
+        vk = 0x6F + int(k[1:])
+    else:
+        return None
+    return mods, vk
 
 user32.SetWindowPos.argtypes = [wintypes.HWND, wintypes.HWND, ctypes.c_int, ctypes.c_int,
                                 ctypes.c_int, ctypes.c_int, ctypes.c_uint]
@@ -260,6 +288,7 @@ class DeskBoard:
         self.settings = load_json(SETTINGS, {})
         self.settings.setdefault("tags", {})
         self.settings.setdefault("filter", [])
+        self.settings.setdefault("hotkeys", dict(DEFAULT_HOTKEYS))   # change them here, then restart Desk Board
         self.date = None
         self.tasks = []
         self.load_today()
@@ -325,18 +354,29 @@ class DeskBoard:
         user32.SetWindowPos(self.hwnd, 1, 0, 0, 0, 0, 0x0001 | 0x0002 | 0x0010)
 
     def hotkey_loop(self):
-        # MOD_ALT | MOD_NOREPEAT, VK_OEM_3 (` key). Runs on its own thread with its own message queue.
-        if not user32.RegisterHotKey(None, 1, 0x0001 | 0x4000, 0xC0):
-            return
+        # global shortcuts; runs on its own thread with its own message queue
+        keys = self.settings.get("hotkeys") or {}
+        self.hotkeys_ok = {}
+        for hid, which in ((1, "board"), (2, "memory")):
+            hk = parse_hotkey(keys.get(which) or DEFAULT_HOTKEYS[which])
+            self.hotkeys_ok[which] = bool(hk) and bool(user32.RegisterHotKey(None, hid, hk[0] | 0x4000, hk[1]))  # 0x4000 = no repeat
         msg = wintypes.MSG()
         while user32.GetMessageW(ctypes.byref(msg), None, 0, 0) > 0:
             if msg.message == 0x0312:  # WM_HOTKEY
-                self.hotkey_hit = True
+                self.hotkey_hit = int(msg.wParam)
 
     def watch_signals(self):
         if self.hotkey_hit:
-            self.hotkey_hit = False
-            self.send_back() if self.front else self.bring_front()
+            hit, self.hotkey_hit = self.hotkey_hit, False
+            if hit == 2:                                  # memory shortcut: board up + memory panel open
+                if self.popup is not None and self.popup is getattr(self, "mem_popup", None):
+                    self.close_popup()
+                    self.send_back()
+                else:
+                    self.bring_front()
+                    self.mem_panel()
+            else:
+                self.send_back() if self.front else self.bring_front()
         if kernel32.WaitForSingleObject(SHOW_EVENT, 0) == 0:  # taskbar / Start menu icon clicked
             self.bring_front()
         self.root.after(150, self.watch_signals)
@@ -880,20 +920,21 @@ class DeskBoard:
         return y, extents
 
     # ------------------------------------------------ images
-    def run_ps(self, args, done):
+    def run_ps(self, args, done, script=None, raw=False):
         """Runs the image helper hidden, without blocking the board; calls done(ok)."""
         try:
             proc = subprocess.Popen(["powershell", "-NoProfile", "-NonInteractive", "-STA", "-ExecutionPolicy", "Bypass",
-                                     "-File", str(CLIP_PS1)] + [str(a) for a in args],
+                                     "-File", str(script or CLIP_PS1)] + [str(a) for a in args],
                                     stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, creationflags=0x08000000)
         except OSError:
-            return done(False)
+            return done("" if raw else False)
 
         def wait():
             if proc.poll() is None:
                 self.root.after(120, wait)
             else:
-                done(proc.stdout.read().decode(errors="ignore").strip().endswith("OK"))
+                out = proc.stdout.read().decode("utf-8", errors="ignore").strip()
+                done(out if raw else out.endswith("OK"))
         self.root.after(150, wait)
 
     def preview_args(self, name, src=""):
@@ -1684,23 +1725,60 @@ class DeskBoard:
         self.close_popup()
         s = self.s
         p, cv, _ = self.rounded_window(DESK_HI)
-        self.popup = p
-        self.mem_state = {}
+        self.popup = self.mem_popup = p
+        self.mem_state, self.tabs, self.tabs_busy, self.tabs_gone = {}, [], False, set()
+        self.mem_open = getattr(self, "mem_open", set())       # browsers whose tabs are shown
+        self.mem_all = set()                                   # browsers showing every tab
         cv.bind("<Button-1>", lambda e: self.mem_click(p, cv))
-        p.bind("<Escape>", lambda e: self.close_popup())
+        p.bind("<Escape>", lambda e: (self.close_popup(), self.send_back()))
+        p.bind("<MouseWheel>", lambda e: self.mem_scroll(cv, e))
         self.draw_mem(p, cv)
         x0, y0, x1, y1 = self.c.bbox("mem_bg")
         pw = int(cv["width"])
         p.geometry(f"+{int(self.left + min(x1, self.W - s(16)) - pw)}+{int(self.top + y1 + s(10))}")
+        self.mem_top = y1 + s(10)
         p.focus_force()
         p.bind("<FocusOut>", lambda e: self.root.after(80, lambda: self.popup is p and p.focus_get() is None and self.close_popup()))
+        self.load_tabs(p, cv)
 
-        def tick():
+        def tick(n=1):
             if self.popup is p:
                 self.draw_mem(p, cv)
                 self.update_mem_pill()
-                self.root.after(2000, tick)
+                if n % 2 == 0:
+                    self.load_tabs(p, cv)
+                self.root.after(2000, lambda: tick(n + 1))
         self.root.after(2000, tick)
+
+    def load_tabs(self, p, cv):
+        """Reads the open browser tabs in the background (about half a second)."""
+        if self.tabs_busy:
+            return
+        self.tabs_busy = True
+
+        def done(out):
+            self.tabs_busy = False
+            try:
+                rows = json.loads(out or "[]")
+            except ValueError:
+                rows = []
+            tabs = []
+            for r in rows if isinstance(rows, list) else []:
+                name = r.get("name") or ""
+                m = TAB_MEM_RE.search(name)
+                size = 0
+                if m:
+                    size = float(m.group(1).replace(",", "")) * 1024 ** ("KMG".index(m.group(2).upper()) + 1)
+                title = TAB_MEM_RE.sub("", name).strip() or name
+                tabs.append({"pid": r.get("pid"), "hwnd": r.get("hwnd"), "name": name, "title": title, "bytes": size})
+            self.tabs = tabs
+            if tabs and not getattr(self, "mem_open_seen", False):   # first time: show the tabs of every browser
+                self.mem_open_seen = True
+                self.mem_open |= {k for k, ap in getattr(self, "mem_apps", {}).items()
+                                  if any(t["pid"] in ap["pids"] for t in tabs)}
+            if self.popup is p:
+                self.draw_mem(p, cv)
+        self.run_ps(["list"], done, script=TABS_PS1, raw=True)
 
     def draw_mem(self, p, cv):
         s = self.s
@@ -1713,8 +1791,10 @@ class DeskBoard:
             elif stt["stage"] == "closing" and now - stt["t"] > 3:
                 stt["stage"] = "force"
         self.mem_apps = {a["key"]: a for a in apps}
+        self.tab_index = {}
 
-        PW, pad = s(470), s(22)
+        PW, pad = s(500), s(22)
+        max_h = self.H - getattr(self, "mem_top", s(70)) - s(16)
         cv.delete("all")
         bar = self.mem_colours(pct)[2]
         y = pad
@@ -1729,23 +1809,64 @@ class DeskBoard:
         y += s(24)
         top = max([a["bytes"] for a in apps] or [1])
         for a in apps:
+            tabs = [t for t in self.tabs if t["pid"] in a["pids"] and (t["hwnd"], t["name"]) not in self.tabs_gone]
             stage = self.mem_state.get(a["key"], {}).get("stage")
             cv.create_text(pad, y, anchor="nw", text=a["name"], font=self.f_ui, fill=ON_DESK)
             n = len(a["pids"])
             if n > 1:
                 cv.create_text(pad + self.f_ui.measure(a["name"]) + s(8), y + s(2), anchor="nw", text=f"{n} processes",
                                font=self.f_mono_s, fill=ON_DESK_3)
-            barw = PW - 2 * pad - s(190)
+            barw = PW - 2 * pad - s(270)
             self.rrect_on(cv, pad, y + s(24), pad + max(s(4), barw * a["bytes"] / top), y + s(28), s(2),
                           fill="#5d7fd9" if a["bytes"] < 1024 ** 3 else FLAME)
-            cv.create_text(PW - pad - s(96), y + s(13), anchor="e", text=procs.nice_size(a["bytes"]), font=self.f_mono,
-                           fill=ON_DESK_2)
             label, bfill, bfg = {"closing": ("Closing…", DESK, ON_DESK_3), "force": ("Force quit", RED, "#ffffff"),
                                  "admin": ("Needs admin", DESK, ON_DESK_3)}.get(stage, ("End", RULE, ON_DESK))
             tg = ("btn", f"app:{a['key']}")
             self.rrect_on(cv, PW - pad - s(84), y + s(1), PW - pad, y + s(27), s(13), fill=bfill, tags=tg)
             cv.create_text(PW - pad - s(42), y + s(14), text=label, font=self.f_mono_s, fill=bfg, tags=tg)
+            size_x = PW - pad - s(96)
+            if tabs:
+                is_open = a["key"] in self.mem_open
+                tg = ("btn", f"tabs:{a['key']}")
+                tx1 = PW - pad - s(92)
+                self.rrect_on(cv, tx1 - s(82), y + s(1), tx1, y + s(27), s(13), fill=ACCENT if is_open else DESK, tags=tg)
+                cv.create_text(tx1 - s(41), y + s(14), text=f"{len(tabs)} tabs {'▴' if is_open else '▾'}", font=self.f_mono_s,
+                               fill="#ffffff" if is_open else ON_DESK_2, tags=tg)
+                size_x = tx1 - s(92)
+            cv.create_text(size_x, y + s(13), anchor="e", text=procs.nice_size(a["bytes"]), font=self.f_mono, fill=ON_DESK_2)
             y += s(42)
+
+            if tabs and a["key"] in self.mem_open:
+                tabs = sorted(tabs, key=lambda t: -t["bytes"])
+                show = tabs if a["key"] in self.mem_all else tabs[:6]
+                for t in show:
+                    key = f"{t['hwnd']}:{len(self.tab_index)}"
+                    self.tab_index[key] = t
+                    self.rrect_on(cv, pad + s(6), y + s(2), PW - pad, y + s(26), s(8), fill="#33332f")
+                    title_w = PW - 2 * pad - s(150)
+                    title = t["title"]
+                    while self.f_ui.measure(title) > title_w and len(title) > 4:
+                        title = title[:-2]
+                    if title != t["title"]:
+                        title = title.rstrip() + "…"
+                    cv.create_text(pad + s(18), y + s(14), anchor="w", text=title, font=self.f_ui, fill=ON_DESK)
+                    if t["bytes"]:
+                        cv.create_text(PW - pad - s(44), y + s(14), anchor="e", text=procs.nice_size(t["bytes"]),
+                                       font=self.f_mono_s, fill=FLAME if t["bytes"] >= 500 * 1024 ** 2 else ON_DESK_2)
+                    tg = ("btn", f"tab:{key}")
+                    cx, cy = PW - pad - s(18), y + s(14)
+                    cv.create_oval(cx - s(10), cy - s(10), cx + s(10), cy + s(10), fill=RULE, outline="", tags=tg)
+                    cv.create_text(cx, cy, text="✕", font=self.f_mono_s, fill=ON_DESK, tags=tg)
+                    y += s(30)
+                if len(show) < len(tabs):
+                    tg = ("btn", f"alltabs:{a['key']}")
+                    cv.create_text(pad + s(18), y + s(4), anchor="nw", text=f"show all {len(tabs)} tabs",
+                                   font=self.f_mono_s, fill="#8fa8ff", tags=tg)
+                    y += s(26)
+                y += s(8)
+        if self.tabs_busy and not self.tabs:
+            cv.create_text(pad, y, anchor="nw", text="reading browser tabs…", font=self.f_mono_s, fill=ON_DESK_3)
+            y += s(20)
         y += s(4)
         cv.create_line(pad, y, PW - pad, y, fill=RULE)
         y += s(12)
@@ -1754,10 +1875,22 @@ class DeskBoard:
         cv.create_text(PW - pad, y + s(22), anchor="ne", text="Windows Task Manager \u2197", font=self.f_mono_s, fill="#8fa8ff",
                        tags=("btn", "taskmgr"))
         H = y + s(22) + s(16) + pad
-        cv.config(width=PW, height=H)
-        bgp = cv.create_polygon(self.rr_pts(0, 0, PW, H, s(18)), smooth=True, splinesteps=12, fill=DESK_HI, outline="")
+        view_h = int(min(H, max_h))                       # taller than the screen: scroll with the mouse wheel
+        cv.config(width=PW, height=view_h, scrollregion=(0, 0, PW, H), yscrollincrement=s(30))
+        bgp = cv.create_polygon(self.rr_pts(0, 0, PW, view_h, s(18)), smooth=True, splinesteps=12, fill=DESK_HI,
+                                outline="", tags="panelbg")
         cv.tag_lower(bgp)
-        p.geometry(f"{PW}x{H}")
+        self.mem_panel_bg(cv)
+        p.geometry(f"{PW}x{view_h}")
+
+    def mem_panel_bg(self, cv):
+        """Keeps the rounded background behind the visible part while scrolling."""
+        top, vh, pw = cv.canvasy(0), int(cv["height"]), int(cv["width"])
+        cv.coords("panelbg", *self.rr_pts(0, top, pw, top + vh, self.s(18)))
+
+    def mem_scroll(self, cv, e):
+        cv.yview_scroll(-1 if e.delta > 0 else 1, "units")
+        self.mem_panel_bg(cv)
 
     def rrect_on(self, cv, x0, y0, x1, y1, r, fill, tags=()):
         return cv.create_polygon(self.rr_pts(x0, y0, x1, y1, r), smooth=True, splinesteps=8, fill=fill, outline="", tags=tags)
@@ -1767,6 +1900,19 @@ class DeskBoard:
         if "taskmgr" in tags:
             self.close_popup()
             return os.startfile("taskmgr.exe")
+        tab = next((t[4:] for t in tags if t.startswith("tab:")), None)
+        if tab is not None and tab in self.tab_index:
+            t = self.tab_index[tab]
+            self.tabs_gone.add((t["hwnd"], t["name"]))          # hide it right away
+            import base64
+            self.run_ps(["close", t["hwnd"], base64.b64encode(t["name"].encode("utf-8")).decode()],
+                        lambda out: self.popup is p and self.load_tabs(p, cv), script=TABS_PS1, raw=True)
+            return self.draw_mem(p, cv)
+        for prefix, bucket in (("tabs:", self.mem_open), ("alltabs:", self.mem_all)):
+            k = next((t[len(prefix):] for t in tags if t.startswith(prefix)), None)
+            if k is not None:
+                bucket.symmetric_difference_update({k})
+                return self.draw_mem(p, cv)
         key = next((t[4:] for t in tags if t.startswith("app:")), None)
         if key is None:
             return
@@ -1815,7 +1961,9 @@ class DeskBoard:
         tk.Label(box, text="Shortcuts", font=self.f_card_b, fg=INK, bg=PAPER).pack(anchor="w", pady=(0, s(8)))
         grid = tk.Frame(box, bg=PAPER)
         grid.pack(anchor="w")
-        rows = [(HOTKEY_TEXT, "bring the board up / send it back"), ("Enter", "add the card"), ("Shift + Enter", "new line"),
+        hk = self.settings.get("hotkeys") or DEFAULT_HOTKEYS
+        rows = [(hk.get("board", HOTKEY_TEXT), "bring the board up / send it back"),
+                (hk.get("memory", DEFAULT_HOTKEYS["memory"]), "open the memory panel"), ("Enter", "add the card"), ("Shift + Enter", "new line"),
                 ("3pm  14:30", "at the start sets a reminder"), ("#tag", "groups cards, Tab picks one"),
                 ("Ctrl + B", "*bold*"), ("Ctrl + I", "_italic_"), ("Ctrl + Shift + X", "~strike~"), ("Ctrl + Shift + C", "`code`"),
                 ("1.  or  - ", "numbered or bullet list"), ("Tab / Shift+Tab", "indent a list item (1. → a.)"),
