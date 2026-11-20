@@ -69,6 +69,16 @@ The **memory** pill at the top right shows how full your RAM is. It turns amber 
 
 Browsers (Chrome, Edge, Brave, Vivaldi, Opera, Firefox) also list their **open tabs**, with the memory each tab uses when the browser reports it, and a **✕** to close a tab. Scroll the panel with the mouse wheel when the list is long.
 
+### Add your AI assistant (optional)
+
+Want a button for an assistant you use, like Instinct or ChatGPT? Add this to `settings.json` and restart Desk Board:
+
+```json
+"assistant": { "name": "Instinct", "url": "https://app.instinct.com/login" }
+```
+
+A button with that name appears at the top right and opens it. **Shift + right-click** a card and choose **Ask Instinct about this** to copy the task and open the assistant, ready to paste. Desk Board never sends anything by itself: nothing leaves your computer unless you paste it.
+
 ### Change the shortcuts
 
 Open `settings.json` in the Desk Board folder and edit:

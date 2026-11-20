@@ -646,6 +646,7 @@ class DeskBoard:
         else:
             pills_left = hb[0] - s(12)
         pills_left = self.draw_mem_pill(pills_left - s(10))
+        pills_left = self.draw_assistant_pill(pills_left - s(10))
 
         self.quote_bottom = self.draw_quote(hdr_right + s(56), pills_left - s(56))
         self.draw_filter()
@@ -1014,6 +1015,49 @@ class DeskBoard:
         return "break"
 
     # ------------------------------------------------ copy a card
+    # ------------------------------------------------ your AI assistant (optional, set in settings.json)
+    def assistant(self):
+        """settings.json "assistant": {"name": "Instinct", "url": "https://app.instinct.com/"} adds a button for it.
+        The board never sends anything by itself: it only opens the page, and copies a card when you ask."""
+        a = self.settings.get("assistant") or {}
+        url = str(a.get("url") or "")
+        if not url.startswith("https://"):
+            return None
+        return {"name": str(a.get("name") or "Assistant")[:20], "url": url}
+
+    def draw_assistant_pill(self, right):
+        a = self.assistant()
+        if not a:
+            return right + self.s(10)
+        c, s = self.c, self.s
+        tg = ("ui", "act_assist")
+        lh = self.f_ui.metrics("linespace")
+        top = s(16)
+        tx = c.create_text(right - s(14), top + s(6) + lh / 2, anchor="e", text=f"{a['name']}  \u2197", font=self.f_ui,
+                           fill="#c9d6ff", tags=tg)
+        b = c.bbox(tx)
+        bg = self.rrect(b[0] - s(14), top, right, top + lh + s(12), s(14), fill="#26324f", outline="", tags=tg)
+        c.tag_lower(bg, tx)
+        return b[0] - s(14)
+
+    def open_assistant(self):
+        a = self.assistant()
+        if a:
+            os.startfile(a["url"])
+
+    def send_to_assistant(self, tid):
+        a, t = self.assistant(), self.find(tid)
+        if not a or not t:
+            return
+        text = plain(t["text"]).strip()
+        if t.get("time"):
+            text = f"{nice_time(t['time'])}: {text}"
+        self.root.clipboard_clear()
+        self.root.clipboard_append(text)
+        self.root.update()
+        self.copied(tid, True, f"Copied, paste it in {a['name']}")
+        os.startfile(a["url"])
+
     def copy_card(self, tid, what="auto"):
         t = self.find(tid)
         if not t:
@@ -1425,6 +1469,8 @@ class DeskBoard:
             return self.clear_menu()
         if "act_mem" in tags:
             return self.mem_panel()
+        if "act_assist" in tags:
+            return self.open_assistant()
         if "act_all" in tags:
             return self.set_filter([])
         if "act_filter" in tags and tg:
@@ -1655,6 +1701,9 @@ class DeskBoard:
             m.add_command(label="Edit", command=lambda: self.edit(cid))
             if t["text"].strip():
                 m.add_command(label="Copy text", command=lambda: self.copy_card(cid, "text"))
+                if self.assistant():
+                    m.add_command(label=f"Ask {self.assistant()['name']} about this",
+                                  command=lambda: self.send_to_assistant(cid))
             if t.get("images"):
                 m.add_command(label="Copy image", command=lambda: self.copy_card(cid, "image"))
             m.add_command(label="Change reminder" if t.get("time") else "Set a reminder",
@@ -1671,6 +1720,8 @@ class DeskBoard:
             m.add_separator()
             m.add_command(label=f"Remove {tg} from every card", foreground="#ff8a73", command=lambda: self.drop_tag(tg))
         else:
+            if self.assistant():
+                m.add_command(label=f"Open {self.assistant()['name']}", command=self.open_assistant)
             m.add_command(label="Tidy up, grouped by tag", command=self.tidy)
             m.add_command(label="Clear scratched-off cards", command=self.clear_done)
             m.add_command(label="Clear the whole board", foreground="#ff8a73", command=self.clear_all)
