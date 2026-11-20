@@ -1,0 +1,6 @@
+# your own data stays on your computer
+boards/
+images/
+settings*.json
+*.lnk
+__pycache__/

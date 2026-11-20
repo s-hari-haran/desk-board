@@ -1,0 +1,205 @@
+# Desk Board daily quotes: one shows per day, in a shuffled order, and none repeats until all have been shown.
+# Format: quote | who said it.   Add or delete lines freely. Lines starting with # are ignored.
+The first principle is that you must not fool yourself, and you are the easiest person to fool. | Richard Feynman
+Make something people want. | Paul Graham
+Do things that don't scale. | Paul Graham
+Live in the future, then build what's missing. | Paul Graham
+It's better to make a few people really happy than to make a lot of people semi-happy. | Paul Graham
+Amateurs sit and wait for inspiration, the rest of us just get up and go to work. | Stephen King
+Talent is cheaper than table salt. What separates the talented individual from the successful one is a lot of hard work. | Stephen King
+The scariest moment is always just before you start. | Stephen King
+Inspiration is for amateurs. The rest of us just show up and get to work. | Chuck Close
+Real artists ship. | Steve Jobs
+Focusing is about saying no. | Steve Jobs
+I'm as proud of what we don't do as I am of what we do. | Steve Jobs
+Your time is limited, so don't waste it living someone else's life. | Steve Jobs
+You can't connect the dots looking forward; you can only connect them looking backwards. | Steve Jobs
+Stay hungry. Stay foolish. | Whole Earth Catalog
+Show me the incentive and I will show you the outcome. | Charlie Munger
+Invert, always invert. | Carl Jacobi, Munger's favourite
+It is remarkable how much long-term advantage people like us have gotten by trying to be consistently not stupid, instead of trying to be very intelligent. | Charlie Munger
+Spend each day trying to be a little wiser than you were when you woke up. | Charlie Munger
+The big money is not in the buying and selling, but in the waiting. | Charlie Munger
+Only when the tide goes out do you discover who's been swimming naked. | Warren Buffett
+It takes 20 years to build a reputation and five minutes to ruin it. | Warren Buffett
+Price is what you pay. Value is what you get. | Warren Buffett
+Rule No. 1: never lose money. Rule No. 2: never forget rule No. 1. | Warren Buffett
+Play long-term games with long-term people. | Naval Ravikant
+Learn to sell. Learn to build. If you can do both, you will be unstoppable. | Naval Ravikant
+Desire is a contract you make with yourself to be unhappy until you get what you want. | Naval Ravikant
+If you can't decide, the answer is no. | Naval Ravikant
+Seek wealth, not money or status. | Naval Ravikant
+Everybody has a plan until they get punched in the mouth. | Mike Tyson
+Discipline equals freedom. | Jocko Willink
+We suffer more often in imagination than in reality. | Seneca
+It is not that we have a short time to live, but that we waste a lot of it. | Seneca
+While we are postponing, life speeds by. | Seneca
+Begin at once to live, and count each separate day as a separate life. | Seneca
+Difficulties strengthen the mind, as labour does the body. | Seneca
+You could leave life right now. Let that determine what you do and say and think. | Marcus Aurelius
+The impediment to action advances action. What stands in the way becomes the way. | Marcus Aurelius
+Waste no more time arguing about what a good man should be. Be one. | Marcus Aurelius
+Most of what we say and do is not essential. Ask yourself: is this necessary? | Marcus Aurelius
+If it is not right, do not do it; if it is not true, do not say it. | Marcus Aurelius
+Very little is needed to make a happy life. | Marcus Aurelius
+Men are disturbed not by things, but by the views which they take of things. | Epictetus
+First say to yourself what you would be; and then do what you have to do. | Epictetus
+No man is free who is not master of himself. | Epictetus
+Don't explain your philosophy. Embody it. | Epictetus
+Wealth consists not in having great possessions, but in having few wants. | Epictetus
+How we spend our days is, of course, how we spend our lives. | Annie Dillard
+Done is better than perfect. | Poster on Facebook's office walls
+The perfect is the enemy of the good. | Voltaire
+If you're not embarrassed by the first version of your product, you've launched too late. | Reid Hoffman
+It always takes longer than you expect, even when you take into account Hofstadter's Law. | Douglas Hofstadter
+Plans are worthless, but planning is everything. | Dwight D. Eisenhower
+What is important is seldom urgent and what is urgent is seldom important. | Dwight D. Eisenhower
+You miss 100% of the shots you don't take. | Wayne Gretzky
+Ever tried. Ever failed. No matter. Try again. Fail again. Fail better. | Samuel Beckett
+Simplicity is prerequisite for reliability. | Edsger Dijkstra
+Premature optimization is the root of all evil. | Donald Knuth
+Talk is cheap. Show me the code. | Linus Torvalds
+The best way to predict the future is to invent it. | Alan Kay
+Any sufficiently advanced technology is indistinguishable from magic. | Arthur C. Clarke
+Be so good they can't ignore you. | Steve Martin
+I fear not the man who has practised 10,000 kicks once, but the man who has practised one kick 10,000 times. | Bruce Lee
+Absorb what is useful, discard what is useless, add what is specifically your own. | Bruce Lee
+If you spend too much time thinking about a thing, you'll never get it done. | Bruce Lee
+A ship in harbour is safe, but that is not what ships are built for. | John A. Shedd
+Nothing in the world is worth having or worth doing unless it means effort, pain, difficulty. | Theodore Roosevelt
+The credit belongs to the man who is actually in the arena. | Theodore Roosevelt
+Do what you can, with what you have, where you are. | Theodore Roosevelt
+Not everything that is faced can be changed, but nothing can be changed until it is faced. | James Baldwin
+The world breaks everyone and afterward many are strong at the broken places. | Ernest Hemingway
+Hard choices, easy life. Easy choices, hard life. | Jerzy Gregorek
+Motivation is what gets you started. Habit is what keeps you going. | Jim Ryun
+You do not rise to the level of your goals. You fall to the level of your systems. | James Clear
+Every action you take is a vote for the type of person you wish to become. | James Clear
+Habits are the compound interest of self-improvement. | James Clear
+There is nothing so useless as doing efficiently that which should not be done at all. | Peter Drucker
+Until we can manage time, we can manage nothing else. | Peter Drucker
+Work expands so as to fill the time available for its completion. | C. Northcote Parkinson
+Never put off till tomorrow what may be done day after tomorrow just as well. | Mark Twain
+Don't watch the clock; do what it does. Keep going. | Sam Levenson
+Either write something worth reading or do something worth writing. | Benjamin Franklin
+Well done is better than well said. | Benjamin Franklin
+Lost time is never found again. | Benjamin Franklin
+I have made this longer than usual because I have not had time to make it shorter. | Blaise Pascal
+All of humanity's problems stem from man's inability to sit quietly in a room alone. | Blaise Pascal
+Writing is nature's way of letting you know how sloppy your thinking is. | Dick Guindon
+Clear thinking becomes clear writing; one can't exist without the other. | William Zinsser
+Start where you are. Use what you have. Do what you can. | Arthur Ashe
+One must imagine Sisyphus happy. | Albert Camus
+In the midst of winter, I found there was, within me, an invincible summer. | Albert Camus
+He who has a why to live can bear almost any how. | Friedrich Nietzsche
+My formula for greatness in a human being is amor fati: that one wants nothing to be different. | Friedrich Nietzsche
+Everything can be taken from a man but one thing: the last of the human freedoms, to choose one's attitude in any given set of circumstances. | Viktor Frankl
+Genius is one percent inspiration and ninety-nine percent perspiration. | Thomas Edison
+If you don't like something, change it. If you can't change it, change your attitude. | Maya Angelou
+You can't use up creativity. The more you use, the more you have. | Maya Angelou
+Do one thing every day that scares you. | Mary Schmich
+Well-behaved women seldom make history. | Laurel Thatcher Ulrich
+I can accept failure, everyone fails at something. But I can't accept not trying. | Michael Jordan
+I've failed over and over and over again in my life. And that is why I succeed. | Michael Jordan
+Hard work beats talent when talent doesn't work hard. | Tim Notke
+Pressure is a privilege. | Billie Jean King
+Champions keep playing until they get it right. | Billie Jean King
+It's not the mountain we conquer, but ourselves. | Edmund Hillary
+Fall seven times, stand up eight. | Japanese proverb
+Ideas are easy. Implementation is hard. | Guy Kawasaki
+Your most unhappy customers are your greatest source of learning. | Bill Gates
+Most people overestimate what they can do in one year and underestimate what they can do in ten years. | Bill Gates
+Your margin is my opportunity. | Jeff Bezos
+Disagree and commit. | Jeff Bezos
+If you double the number of experiments you do per year, you're going to double your inventiveness. | Jeff Bezos
+Your brand is what other people say about you when you're not in the room. | Jeff Bezos
+When something is important enough, you do it even if the odds are not in your favour. | Elon Musk
+The best part is no part. | Elon Musk
+Only the paranoid survive. | Andy Grove
+Bad companies are destroyed by crises. Good companies survive them. Great companies are improved by them. | Andy Grove
+Competition is for losers. | Peter Thiel
+What important truth do very few people agree with you on? | Peter Thiel
+Brilliant thinking is rare, but courage is in even shorter supply than genius. | Peter Thiel
+The hard thing about hard things is that there is no formula for dealing with them. | Ben Horowitz
+Who you are is defined by what you're willing to struggle for. | Mark Manson
+The desire for more positive experience is itself a negative experience. | Mark Manson
+Inaction breeds doubt and fear. Action breeds confidence and courage. | Dale Carnegie
+Do the hard jobs first. The easy jobs will take care of themselves. | Dale Carnegie
+Inspiration exists, but it has to find you working. | Pablo Picasso
+Others have seen what is and asked why. I have seen what could be and asked why not. | Pablo Picasso
+Creativity is just connecting things. | Steve Jobs
+We are what we repeatedly do. Excellence, then, is not an act, but a habit. | Will Durant
+The unexamined life is not worth living. | Socrates
+If you want to go fast, go alone. If you want to go far, go together. | African proverb
+The man who chases two rabbits catches neither. | Proverb
+A year from now you may wish you had started today. | Karen Lamb
+You can do anything, but not everything. | David Allen
+Your mind is for having ideas, not holding them. | David Allen
+Things which matter most must never be at the mercy of things which matter least. | Johann Wolfgang von Goethe
+Knowing is not enough; we must apply. Willing is not enough; we must do. | Johann Wolfgang von Goethe
+The key is not to prioritize what's on your schedule, but to schedule your priorities. | Stephen Covey
+Small deeds done are better than great deeds planned. | Peter Marshall
+The bad news is time flies. The good news is you're the pilot. | Michael Altshuler
+Perfection is achieved, not when there is nothing more to add, but when there is nothing left to take away. | Antoine de Saint-Exupéry
+What we fear doing most is usually what we most need to do. | Tim Ferriss
+Being busy is a form of laziness: lazy thinking and indiscriminate action. | Tim Ferriss
+If it's not a hell yes, it's a no. | Derek Sivers
+If information was the answer, then we'd all be billionaires with perfect abs. | Derek Sivers
+Busy is a decision. | Debbie Millman
+A poem is never finished, only abandoned. | Paul Valéry
+Life is what happens to you while you're busy making other plans. | John Lennon
+Time you enjoy wasting is not wasted time. | Marthe Troly-Curtin
+Almost everything will work again if you unplug it for a few minutes, including you. | Anne Lamott
+Perfectionism is the voice of the oppressor, the enemy of the people. | Anne Lamott
+Just take it bird by bird. | Anne Lamott
+You can't wait for inspiration. You have to go after it with a club. | Jack London
+Everybody wants to save the Earth; nobody wants to help Mom do the dishes. | P. J. O'Rourke
+I love deadlines. I love the whooshing noise they make as they go by. | Douglas Adams
+Don't Panic. | Douglas Adams
+Coming back to where you started is not the same as never leaving. | Terry Pratchett
+Strong opinions, weakly held. | Paul Saffo
+A bad system will beat a good person every time. | W. Edwards Deming
+It is not necessary to change. Survival is not mandatory. | W. Edwards Deming
+Not everything that can be counted counts, and not everything that counts can be counted. | William Bruce Cameron
+We have Paleolithic emotions, medieval institutions and godlike technology. | E. O. Wilson
+Be regular and orderly in your life, so that you may be violent and original in your work. | Gustave Flaubert
+Have no fear of perfection. You'll never reach it. | Salvador Dalí
+Talent hits a target no one else can hit; genius hits a target no one else can see. | Arthur Schopenhauer
+The trouble is, you think you have time. | Jack Kornfield
+The two most powerful warriors are patience and time. | Leo Tolstoy
+Everyone thinks of changing the world, but no one thinks of changing himself. | Leo Tolstoy
+Pain is inevitable. Suffering is optional. | Haruki Murakami
+If you only read the books that everyone else is reading, you can only think what everyone else is thinking. | Haruki Murakami
+The future is already here. It's just not very evenly distributed. | William Gibson
+Before you diagnose yourself with depression or low self-esteem, first make sure that you are not, in fact, just surrounded by assholes. | William Gibson
+Do. Or do not. There is no try. | Yoda
+Get busy living, or get busy dying. | The Shawshank Redemption
+It ain't about how hard you hit. It's about how hard you can get hit and keep moving forward. | Rocky Balboa
+Always be closing. | Glengarry Glen Ross
+I'm not a businessman, I'm a business, man. | Jay-Z
+Make it work, make it right, make it fast. | Kent Beck
+If everything seems under control, you're not going fast enough. | Mario Andretti
+I never dreamed about success. I worked for it. | Estée Lauder
+Don't be afraid to give up the good to go for the great. | John D. Rockefeller
+I'd rather be a failure at something I love than a success at something I hate. | George Burns
+If you think you are too small to make a difference, try sleeping with a mosquito. | Dalai Lama
+Arise, awake, and stop not till the goal is reached. | Swami Vivekananda
+You have a right to your actions, but never to the fruits of your actions. | Bhagavad Gita 2.47
+Dream is not that which you see while sleeping, it is something that does not let you sleep. | A. P. J. Abdul Kalam
+If you want to shine like a sun, first burn like a sun. | A. P. J. Abdul Kalam
+I don't believe in taking right decisions. I take decisions and then make them right. | Ratan Tata
+Don't find customers for your products, find products for your customers. | Seth Godin
+The most dangerous phrase in the language is "We've always done it this way." | Grace Hopper
+It's easier to ask forgiveness than it is to get permission. | Grace Hopper
+A complex system that works is invariably found to have evolved from a simple system that worked. | John Gall
+When in doubt, use brute force. | Ken Thompson
+There are only two hard things in Computer Science: cache invalidation and naming things. | Phil Karlton
+Nothing is particularly hard if you divide it into small jobs. | Henry Ford
+It's kind of fun to do the impossible. | Walt Disney
+The biggest risk is not taking any risk. | Mark Zuckerberg
+In God we trust. All others must bring data. | W. Edwards Deming
+Courage is grace under pressure. | Ernest Hemingway
+The cave you fear to enter holds the treasure you seek. | Joseph Campbell
+If you're going to eat shit, don't nibble. | Ben Horowitz
+Nobody cares, work harder. | Cameron Hanes
+People don't buy what you do; they buy why you do it. | Simon Sinek
