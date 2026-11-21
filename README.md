@@ -41,6 +41,7 @@ That's it. Desk Board opens now, appears in your Start menu, and starts by itsel
 | See it over your windows | Press **Alt + `** (the key above Tab). **Esc** sends it back |
 | Free up memory | Press **Alt + Shift + `**, or click **memory %** at the top right |
 | More options | **Right-click** an empty spot on the board |
+| See your progress from any app | The small **"2 of 5 done"** pill above the clock floats over every window; click it to bring the board up, click again to send it back (it steps aside for full-screen videos and games) |
 | Tuck it away | Click **hide** at the top right (it keeps running; Alt + ` brings it back) |
 
 ### Formatting (like Slack)

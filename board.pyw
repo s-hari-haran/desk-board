@@ -156,6 +156,8 @@ user32.GetParent.restype = wintypes.HWND
 user32.IsIconic.argtypes = [wintypes.HWND]
 user32.IsWindowVisible.argtypes = [wintypes.HWND]
 user32.ShowWindow.argtypes = [wintypes.HWND, ctypes.c_int]
+user32.GetWindowRect.argtypes = [wintypes.HWND, ctypes.POINTER(wintypes.RECT)]
+user32.GetClassNameW.argtypes = [wintypes.HWND, wintypes.LPWSTR, ctypes.c_int]
 _GetLong = getattr(user32, "GetWindowLongPtrW", user32.GetWindowLongW)
 _SetLong = getattr(user32, "SetWindowLongPtrW", user32.SetWindowLongW)
 _GetLong.argtypes = [wintypes.HWND, ctypes.c_int]
@@ -365,6 +367,7 @@ class DeskBoard:
         self.top_safe = self.s(150)
 
         self.build_input()
+        self.build_badge()
         self.render()
 
         self.root.update_idletasks()
@@ -481,6 +484,7 @@ class DeskBoard:
         self.ticks = getattr(self, "ticks", 0) + 1
         if self.ticks % 5 == 0:
             self.update_mem_pill()
+        self.badge_tick()
         self.root.after(1000, self.every_second)
 
     def every_20s(self):
@@ -651,6 +655,7 @@ class DeskBoard:
     def render(self):
         c, s = self.c, self.s
         c.delete("ui")
+        self.update_badge()
         W, H = self.W, self.H
         self.settings["filter"] = [f for f in self.settings["filter"] if f in self.settings["tags"]]
         today = dt.date.fromisoformat(self.date)
@@ -2053,6 +2058,77 @@ class DeskBoard:
         self.draw_mem(p, cv)
         self.root.after(400, lambda: self.popup is p and self.draw_mem(p, cv))
 
+    # ------------------------------------------------ "2 of 5 done" pill above the taskbar clock
+    def build_badge(self):
+        """A small pill that floats over every window, bottom-right. Click it: the board comes up; click again: it goes back."""
+        w = tk.Toplevel(self.root, bg=KEY)
+        w.overrideredirect(True)
+        w.attributes("-topmost", True)
+        try:
+            w.attributes("-transparentcolor", KEY)
+        except tk.TclError:
+            pass
+        cv = tk.Canvas(w, bg=KEY, highlightthickness=0, bd=0, cursor="hand2")
+        cv.pack(fill="both", expand=True)
+        cv.bind("<ButtonRelease-1>", lambda e: self.badge_click())
+        w.update_idletasks()
+        h = user32.GetParent(w.winfo_id()) or w.winfo_id()
+        _SetLong(h, -20, (_GetLong(h, -20) | 0x80 | 0x08000000) & ~0x40000)  # no taskbar button, never takes focus
+        self.badge, self.badge_cv, self.badge_hwnd = w, cv, h
+        self.badge_key, self.badge_shown = None, True
+
+    def update_badge(self):
+        if not getattr(self, "badge", None):
+            return
+        s, cv = self.s, self.badge_cv
+        n = len(self.tasks)
+        done = sum(1 for t in self.tasks if t.get("done"))
+        if n:
+            txt, dot = f"{done} of {n} done", (GREEN if done == n else FLAME)
+        else:
+            txt, dot = "Desk Board", ON_DESK_2
+        if self.badge_key == (txt, dot):
+            return
+        self.badge_key = (txt, dot)
+        cv.delete("all")
+        f = self.f_ui
+        pad, d = s(14), s(8)
+        bw, bh = pad + d + s(8) + f.measure(txt) + pad, f.metrics("linespace") + s(14)
+        cv.config(width=bw, height=bh)
+        self.rrect_on(cv, 0, 0, bw, bh, bh // 2, fill=RULE)
+        self.rrect_on(cv, 1, 1, bw - 1, bh - 1, bh // 2 - 1, fill=DESK_HI)
+        cv.create_oval(pad, (bh - d) / 2, pad + d, (bh + d) / 2, fill=dot, outline="")
+        cv.create_text(pad + d + s(8), bh / 2, anchor="w", text=txt, font=f, fill=ON_DESK)
+        x, y = self.left + self.W - bw - s(14), self.top + self.H - bh - s(10)
+        self.badge.geometry(f"{bw}x{bh}+{x}+{y}")
+
+    def badge_click(self):
+        if self.front:
+            self.close_popup()
+            self.send_back()
+        else:
+            self.bring_front()
+
+    def badge_tick(self):
+        """Keep the pill on top, but step aside while a full-screen app (video, game, slides) is in front."""
+        fg = user32.GetForegroundWindow()
+        full = False
+        if fg and fg not in (self.hwnd, self.badge_hwnd):
+            r = wintypes.RECT()
+            user32.GetWindowRect(fg, ctypes.byref(r))
+            cls = ctypes.create_unicode_buffer(64)
+            user32.GetClassNameW(fg, cls, 64)
+            full = (r.left <= 0 and r.top <= 0 and r.right >= user32.GetSystemMetrics(0)
+                    and r.bottom >= user32.GetSystemMetrics(1) and cls.value not in ("Progman", "WorkerW"))
+        if full and self.badge_shown:
+            self.badge.withdraw()
+            self.badge_shown = False
+        elif not full:
+            if not self.badge_shown:
+                self.badge.deiconify()
+                self.badge_shown = True
+            user32.SetWindowPos(self.badge_hwnd, -1, 0, 0, 0, 0, 0x0001 | 0x0002 | 0x0010)
+
     # ------------------------------------------------ rounded pop-up windows
     def rounded_window(self, bg):
         w = tk.Toplevel(self.root, bg=KEY)
@@ -2240,7 +2316,7 @@ class DeskBoard:
 
     def stack_reminders(self):
         s = self.s
-        y = self.top + self.H - s(24)
+        y = self.top + self.H - s(64)          # above the "2 of 5 done" pill
         for w in reversed(self.reminder_wins):
             wd, h = w._wh
             y -= h
