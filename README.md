@@ -41,7 +41,7 @@ That's it. Desk Board opens now, appears in your Start menu, and starts by itsel
 | See it over your windows | Press **Alt + `** (the key above Tab). **Esc** sends it back |
 | Free up memory | Press **Alt + Shift + `**, or click **memory %** at the top right |
 | More options | **Right-click** an empty spot on the board |
-| Close it | Click **hide** at the top right |
+| Tuck it away | Click **hide** at the top right (it keeps running; Alt + ` brings it back) |
 
 ### Formatting (like Slack)
 
@@ -117,6 +117,9 @@ Python is probably missing or not on PATH. Reinstall Python and tick "Add python
 
 **Show desktop (Win + D) hides it?**
 It comes back by itself within a moment.
+
+**Can it close by accident?**
+No. Hide only tucks it away, Alt + F4 doesn't close it, and a tiny keeper process starts the board again within 2 seconds if it ever stops. Any error is written to `error.log` in the folder. To really stop it, run `uninstall.cmd` (or end both `pythonw` entries in Task Manager).
 
 **Multiple monitors?**
 It covers your main screen.

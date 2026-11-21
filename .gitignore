@@ -4,3 +4,4 @@ images/
 settings*.json
 *.lnk
 __pycache__/
+error.log

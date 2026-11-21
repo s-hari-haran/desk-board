@@ -8,7 +8,8 @@ Write a task in the strip at the bottom and press Enter.
   double-click              -> edit
   right-click a card        -> delete it (Undo appears); Shift+right-click -> card options
   right-click the board     -> tidy up, clear, shortcuts
-"hide" in the top-right corner closes the board. Start it again from the Start menu ("Desk Board").
+"hide" in the top-right corner tucks the board away; Alt + ` or the Start menu ("Desk Board") brings it back.
+The board never closes by itself: a tiny keeper process starts it again if it ever stops.
 Each day gets its own file in ./boards; unfinished cards move to the next day.
 """
 import ctypes
@@ -26,6 +27,60 @@ from ctypes import wintypes
 from pathlib import Path
 
 APP = Path(os.environ.get("DESKBOARD_DATA") or Path(__file__).resolve().parent)
+ERROR_LOG = APP / "error.log"
+
+
+def log_error(text):
+    try:
+        if ERROR_LOG.exists() and ERROR_LOG.stat().st_size > 200_000:   # keep it small
+            ERROR_LOG.unlink()
+        with open(ERROR_LOG, "a", encoding="utf-8") as f:
+            f.write(f"[{dt.datetime.now():%Y-%m-%d %H:%M:%S}] {text.rstrip()}\n")
+    except OSError:
+        pass
+
+
+def keeper():
+    """Runs the board and starts it again if it ever stops on its own (crash, killed, Windows hiccup).
+    Uses almost no memory: it only waits for the board process."""
+    import time
+    k = ctypes.windll.kernel32
+    k.CreateMutexW.restype = wintypes.HANDLE
+    k.OpenEventW.restype = wintypes.HANDLE
+    k.SetEvent.argtypes = [wintypes.HANDLE]
+    keeper.mutex = k.CreateMutexW(None, False, "DeskBoard_Keeper")
+    if k.GetLastError() == 183:                        # already running: ask the board to come forward
+        ev = k.OpenEventW(0x0002, False, "DeskBoard_Show")
+        if ev:
+            k.SetEvent(ev)
+        return
+    quick = 0
+    while True:
+        started = time.time()
+        code = subprocess.call([sys.executable, str(Path(__file__).resolve()), "--child"])
+        if code == 0:                                  # closed on purpose (or another board is already open)
+            return
+        log_error(f"Desk Board stopped (exit code {code}), starting it again.")
+        quick = quick + 1 if time.time() - started < 60 else 0
+        if quick >= 5:
+            log_error("It stopped 5 times in a row within a minute, so the keeper gave up. Start it from the Start menu.")
+            return
+        time.sleep(2)
+
+
+if __name__ == "__main__" and "--child" not in sys.argv and not os.environ.get("DESKBOARD_TEST"):
+    keeper()
+    sys.exit(0)
+
+if sys.stderr is None:          # pythonw has no console: send any error text to error.log instead
+    class _Log:
+        def write(self, t):
+            if t.strip():
+                log_error(t)
+
+        def flush(self):
+            pass
+    sys.stderr = _Log()
 BOARDS = APP / "boards"
 BOARDS.mkdir(parents=True, exist_ok=True)
 SETTINGS = APP / "settings.json"
@@ -328,6 +383,9 @@ class DeskBoard:
         c.bind("<Key>", self.on_canvas_key)
         self.root.bind("<FocusIn>", lambda e: self.root.after(15, self.push_bottom))
         self.root.bind("<Escape>", lambda e: self.send_back())
+        self.root.protocol("WM_DELETE_WINDOW", self.send_back)   # Alt+F4 doesn't close the board
+        self.root.report_callback_exception = self.on_error
+        self.hidden = False
 
         # Alt + ` (the key above Tab) brings the board up over everything; press again to send it back
         self.hotkey_hit = False
@@ -383,8 +441,21 @@ class DeskBoard:
             self.bring_front()
         self.root.after(150, self.watch_signals)
 
+    def on_error(self, kind, err, tb):
+        import traceback
+        log_error("".join(traceback.format_exception(kind, err, tb)))
+
+    def hide(self):
+        """Tuck the board away (it keeps running). Alt + ` or the Start menu brings it back."""
+        self.close_popup()
+        self.save()
+        self.front = False
+        self.hidden = True
+        user32.ShowWindow(self.hwnd, 0)
+
     def bring_front(self):
         self.front = True
+        self.hidden = False
         user32.ShowWindow(self.hwnd, 5)
         user32.SetWindowPos(self.hwnd, -1, 0, 0, 0, 0, 0x0001 | 0x0002)   # topmost for a moment
         user32.SetWindowPos(self.hwnd, -2, 0, 0, 0, 0, 0x0001 | 0x0002)   # then normal, still on top
@@ -403,7 +474,7 @@ class DeskBoard:
         if self.front and user32.GetForegroundWindow() != self.hwnd and not self.popup:
             self.front = False  # you switched to another app
             self.push_bottom()
-        if user32.IsIconic(self.hwnd) or not user32.IsWindowVisible(self.hwnd):  # Win+D / show desktop
+        if not self.hidden and (user32.IsIconic(self.hwnd) or not user32.IsWindowVisible(self.hwnd)):  # Win+D
             user32.ShowWindow(self.hwnd, 4)
             self.push_bottom()
         self.c.itemconfigure("clock", text=dt.datetime.now().strftime("%H:%M"))
@@ -1464,7 +1535,7 @@ class DeskBoard:
         self.close_popup()
         tags, cid, tg = self.current()
         if "act_hide" in tags:
-            return self.quit()
+            return self.hide()
         if "act_clear" in tags:
             return self.clear_menu()
         if "act_mem" in tags:
@@ -1728,7 +1799,7 @@ class DeskBoard:
             m.add_separator()
             m.add_command(label="Shortcuts and formatting", command=lambda: self.show_help(e.x_root, e.y_root))
             m.add_command(label="Open the boards folder", command=lambda: os.startfile(BOARDS))
-            m.add_command(label="Hide Desk Board", command=self.quit)
+            m.add_command(label="Hide Desk Board (Alt + ` brings it back)", command=self.hide)
         m.tk_popup(e.x_root, e.y_root)
 
     def recolour(self, g):
