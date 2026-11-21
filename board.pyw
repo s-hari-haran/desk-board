@@ -1263,6 +1263,27 @@ class DeskBoard:
         w.bind("<Control-ampersand>", lambda e, w=w: self.toggle_list(w, "ol"))
         w.bind("<Control-asterisk>", lambda e, w=w: self.toggle_list(w, "ul"))
         w.tag_configure("lm", foreground=ACCENT, font=self.f_input_b if big else self.f_card_b)
+        w.bind("<Control-BackSpace>", lambda e, w=w: self.delete_word(w, -1))
+        w.bind("<Control-Delete>", lambda e, w=w: self.delete_word(w, 1))
+
+    def delete_word(self, w, way):
+        """Ctrl+Backspace / Ctrl+Delete: remove the word before / after the cursor (or the selection)."""
+        if w is self.entry and self.placeholder_on:
+            return "break"
+        if w.tag_ranges("sel"):
+            w.delete("sel.first", "sel.last")
+        elif way < 0:
+            before = w.get("insert linestart", "insert")
+            m = re.search(r"(\w+|[^\w\s]+)?\s*$", before)
+            n = len(before) - m.start() if m and m.start() < len(before) else 1
+            w.delete(f"insert -{n}c", "insert")
+        else:
+            after = w.get("insert", "insert lineend")
+            m = re.match(r"\s*(\w+|[^\w\s]+)?", after)
+            n = m.end() if m and m.end() else 1
+            w.delete("insert", f"insert +{n}c")
+        self.after_type(w)
+        return "break"
 
     def wrap_sel(self, w, ch):
         if w is self.entry:
