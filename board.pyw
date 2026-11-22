@@ -298,8 +298,15 @@ def plain(text):
 
 def load_json(path, default):
     try:
-        return json.loads(path.read_text(encoding="utf-8"))
+        return json.loads(path.read_text(encoding="utf-8-sig"))   # -sig: also reads files saved by Notepad/PowerShell
+    except FileNotFoundError:
+        return default
     except Exception:
+        # unreadable (e.g. a typo while editing by hand): keep a copy so nothing is lost, then start from defaults
+        try:
+            path.replace(path.with_name(path.stem + ".broken" + path.suffix))
+        except OSError:
+            pass
         return default
 
 
@@ -398,6 +405,7 @@ class DeskBoard:
         self.root.after(1000, self.every_second)
         self.root.after(20000, self.every_20s)
         self.root.after(1500, self.check_reminders)
+        self.root.after(3000, self.daily_wallpaper)
         if TEST:
             self.root.attributes("-topmost", True)
             self.root.after(int(os.environ.get("DESKBOARD_TEST")), self.quit)
@@ -494,6 +502,7 @@ class DeskBoard:
         elif not self.press and not self.editor and not self.popup:
             self.render()
         self.check_reminders()
+        self.daily_wallpaper()
         self.root.after(20000, self.every_20s)
 
     # ------------------------------------------------ storage
@@ -762,6 +771,33 @@ class DeskBoard:
             self.rrect(x, y, x + self.s(w), y + self.s(h), self.s(2), fill=rnd.choice(cols), outline="", tags="ui")
 
     # ------------------------------------------------ quote of the day
+    def daily_wallpaper(self, force=False):
+        """settings.json "wallpapers": "C:\\...\\a folder of pictures" -> the Windows wallpaper becomes a different
+        picture each day (no repeats until all have shown). Windows draws it, so the board uses no extra memory."""
+        folder = self.settings.get("wallpapers")
+        today = dt.date.today()
+        if not folder or TEST and not force or self.settings.get("wallpaper_day") == today.isoformat():
+            return None
+        pics = sorted(x for x in Path(folder).glob("*") if x.suffix.lower() in (".jpg", ".jpeg", ".png", ".bmp"))
+        if not pics:
+            return None
+        import random
+        order = list(range(len(pics)))
+        random.Random(len(pics)).shuffle(order)
+        pic = pics[order[today.toordinal() % len(pics)]]
+        try:
+            import winreg
+            with winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Control Panel\Desktop", 0, winreg.KEY_SET_VALUE) as k:
+                winreg.SetValueEx(k, "WallpaperStyle", 0, winreg.REG_SZ, "10")    # fill the screen
+                winreg.SetValueEx(k, "TileWallpaper", 0, winreg.REG_SZ, "0")
+        except OSError:
+            pass
+        if user32.SystemParametersInfoW(0x0014, 0, str(pic), 0x01 | 0x02):     # SPI_SETDESKWALLPAPER, save + tell apps
+            self.settings["wallpaper_day"] = today.isoformat()
+            save_json(SETTINGS, self.settings)
+            return pic
+        return None
+
     def today_quote(self):
         if getattr(self, "_quote", (None,))[0] != self.date:
             try:

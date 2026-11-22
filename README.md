@@ -119,6 +119,9 @@ Python is probably missing or not on PATH. Reinstall Python and tick "Add python
 **Show desktop (Win + D) hides it?**
 It comes back by itself within a moment.
 
+**Can it change my Windows wallpaper every day?**
+Yes. Put some pictures in a folder and add `"wallpapers": "C:\\Users\\you\\Pictures\\Nature Wallpapers"` to `settings.json` (restart Desk Board). Each day the wallpaper becomes the next picture, with no repeats until all have shown. Windows draws the wallpaper, so the board uses no extra memory. You see it whenever the board is hidden.
+
 **Can it close by accident?**
 No. Hide only tucks it away, Alt + F4 doesn't close it, and a tiny keeper process starts the board again within 2 seconds if it ever stops. Any error is written to `error.log` in the folder. To really stop it, run `uninstall.cmd` (or end both `pythonw` entries in Task Manager).
 
