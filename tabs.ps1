@@ -1,36 +1,56 @@
 # Desk Board browser-tab helper (runs hidden, only while the memory panel is open).
 #   list:  prints the open tabs of Chrome, Edge, Brave, Vivaldi, Opera and Firefox windows as JSON
-#   close: closes the tab named -name64 (base64 UTF-8 text) in the browser window -hwnd, like clicking the tab's X
+#   close: closes one tab in the browser window -hwnd, like clicking the tab's X, then checks it is really gone.
+#          The tab is found by its title (-name64, base64 UTF-8, without the "Memory usage - 19 MB" part that
+#          changes every few seconds) and, if several tabs share that title, by its position -index.
 # Uses Windows UI Automation, the same thing screen readers use. Nothing is sent anywhere.
-param([string]$mode = "list", [long]$hwnd = 0, [string]$name64 = "")
+param([string]$mode = "list", [long]$hwnd = 0, [string]$name64 = "", [int]$index = -1)
 [Console]::OutputEncoding = [Text.Encoding]::UTF8
-$name = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($name64))
 Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes
 $AE = [Windows.Automation.AutomationElement]
+$Scope = [Windows.Automation.TreeScope]
 $tabCond = New-Object Windows.Automation.PropertyCondition ($AE::ControlTypeProperty), ([Windows.Automation.ControlType]::TabItem)
 $btnCond = New-Object Windows.Automation.PropertyCondition ($AE::ControlTypeProperty), ([Windows.Automation.ControlType]::Button)
+$memRe = '\s-\s(?:high memory usage|memory usage)\s-\s[\d.,]+\s?[KMG]B'
+
+function Get-Title($n) { ($n -replace $memRe, '').Trim() }
+function Get-Tabs($w) { @($w.FindAll($Scope::Descendants, $tabCond) | Where-Object { $_.Current.Name }) }
 
 if ($mode -eq "close") {
+  $want = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($name64))
   $w = $AE::FromHandle([IntPtr]$hwnd)
-  foreach ($t in $w.FindAll([Windows.Automation.TreeScope]::Descendants, $tabCond)) {
-    if ($t.Current.Name -ne $name) { continue }
-    $b = $t.FindFirst([Windows.Automation.TreeScope]::Descendants, $btnCond)
-    if ($b) {
-      $b.GetCurrentPattern([Windows.Automation.InvokePattern]::Pattern).Invoke()
-      'OK'; exit
-    }
+  $tabs = Get-Tabs $w
+  # every tab with this title; pick the one closest to where it was in the list
+  $best = $null; $dist = [int]::MaxValue
+  for ($i = 0; $i -lt $tabs.Count; $i++) {
+    if ((Get-Title $tabs[$i].Current.Name) -ne $want) { continue }
+    $d = [Math]::Abs($i - $index)
+    if ($d -lt $dist) { $best = $tabs[$i]; $dist = $d }
   }
-  'NONE'; exit
+  if (-not $best) { 'NONE'; exit }
+  # the close button: the one named "Close" if there is one, otherwise the last button (mute buttons come first)
+  $btns = @($best.FindAll($Scope::Descendants, $btnCond))
+  $b = $btns | Where-Object { $_.Current.Name -match 'close' } | Select-Object -Last 1
+  if (-not $b) { $b = $btns | Select-Object -Last 1 }
+  if (-not $b) { 'NONE'; exit }
+  $before = $tabs.Count
+  $b.GetCurrentPattern([Windows.Automation.InvokePattern]::Pattern).Invoke()
+  for ($k = 0; $k -lt 15; $k++) {           # wait up to 1.5 s for the tab to disappear
+    Start-Sleep -Milliseconds 100
+    try { if ((Get-Tabs $w).Count -lt $before) { 'OK'; exit } }
+    catch { 'OK'; exit }                     # that was the last tab, so the whole window closed
+  }
+  'STILL'; exit
 }
 
 $out = @()
 $classes = @("Chrome_WidgetWin_1", "MozillaWindowClass")
-foreach ($w in $AE::RootElement.FindAll([Windows.Automation.TreeScope]::Children, [Windows.Automation.Condition]::TrueCondition)) {
+foreach ($w in $AE::RootElement.FindAll($Scope::Children, [Windows.Automation.Condition]::TrueCondition)) {
   if ($classes -notcontains $w.Current.ClassName) { continue }
-  $tabs = $w.FindAll([Windows.Automation.TreeScope]::Descendants, $tabCond)
-  foreach ($t in $tabs) {
-    if (-not $t.Current.Name) { continue }
-    $out += [pscustomobject]@{ pid = $w.Current.ProcessId; hwnd = $w.Current.NativeWindowHandle; name = $t.Current.Name }
+  $i = 0
+  foreach ($t in (Get-Tabs $w)) {
+    $out += [pscustomobject]@{ pid = $w.Current.ProcessId; hwnd = $w.Current.NativeWindowHandle; name = $t.Current.Name; idx = $i }
+    $i++
   }
 }
 ConvertTo-Json -InputObject @($out) -Compress

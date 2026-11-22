@@ -1876,7 +1876,7 @@ class DeskBoard:
         s = self.s
         p, cv, _ = self.rounded_window(DESK_HI)
         self.popup = self.mem_popup = p
-        self.mem_state, self.tabs, self.tabs_busy, self.tabs_gone = {}, [], False, set()
+        self.mem_state, self.tabs, self.tabs_busy, self.tabs_gone = {}, [], False, {}
         self.mem_open = getattr(self, "mem_open", set())       # browsers whose tabs are shown
         self.mem_all = set()                                   # browsers showing every tab
         cv.bind("<Button-1>", lambda e: self.mem_click(p, cv))
@@ -1920,8 +1920,11 @@ class DeskBoard:
                 if m:
                     size = float(m.group(1).replace(",", "")) * 1024 ** ("KMG".index(m.group(2).upper()) + 1)
                 title = TAB_MEM_RE.sub("", name).strip() or name
-                tabs.append({"pid": r.get("pid"), "hwnd": r.get("hwnd"), "name": name, "title": title, "bytes": size})
+                tabs.append({"pid": r.get("pid"), "hwnd": r.get("hwnd"), "name": name, "title": title, "bytes": size,
+                             "idx": r.get("idx", -1)})
             self.tabs = tabs
+            # tabs we closed are now really gone from the fresh list, so stop hiding them by position
+            self.tabs_gone = {k: v for k, v in self.tabs_gone.items() if v != "done"}
             if tabs and not getattr(self, "mem_open_seen", False):   # first time: show the tabs of every browser
                 self.mem_open_seen = True
                 self.mem_open |= {k for k, ap in getattr(self, "mem_apps", {}).items()
@@ -1959,7 +1962,7 @@ class DeskBoard:
         y += s(24)
         top = max([a["bytes"] for a in apps] or [1])
         for a in apps:
-            tabs = [t for t in self.tabs if t["pid"] in a["pids"] and (t["hwnd"], t["name"]) not in self.tabs_gone]
+            tabs = [t for t in self.tabs if t["pid"] in a["pids"] and (t["hwnd"], t["title"], t["idx"]) not in self.tabs_gone]
             stage = self.mem_state.get(a["key"], {}).get("stage")
             cv.create_text(pad, y, anchor="nw", text=a["name"], font=self.f_ui, fill=ON_DESK)
             n = len(a["pids"])
@@ -2053,10 +2056,22 @@ class DeskBoard:
         tab = next((t[4:] for t in tags if t.startswith("tab:")), None)
         if tab is not None and tab in self.tab_index:
             t = self.tab_index[tab]
-            self.tabs_gone.add((t["hwnd"], t["name"]))          # hide it right away
+            g = (t["hwnd"], t["title"], t["idx"])
+            self.tabs_gone[g] = "closing"                         # hide it right away
+
+            def closed(out):
+                if (out or "").strip().endswith("OK"):
+                    self.tabs_gone[g] = "done"                    # stays hidden until the next fresh list
+                else:                                             # it didn't close: show it again and say so
+                    self.tabs_gone.pop(g, None)
+                    short = t["title"] if len(t["title"]) <= 40 else t["title"][:38] + "…"
+                    self.note(f"Couldn't close \u201c{short}\u201d. Close it in the browser.")
+                if self.popup is p:
+                    self.draw_mem(p, cv)
+                    self.load_tabs(p, cv)
             import base64
-            self.run_ps(["close", t["hwnd"], base64.b64encode(t["name"].encode("utf-8")).decode()],
-                        lambda out: self.popup is p and self.load_tabs(p, cv), script=TABS_PS1, raw=True)
+            self.run_ps(["close", t["hwnd"], base64.b64encode(t["title"].encode("utf-8")).decode(), t["idx"]],
+                        closed, script=TABS_PS1, raw=True)
             return self.draw_mem(p, cv)
         for prefix, bucket in (("tabs:", self.mem_open), ("alltabs:", self.mem_all)):
             k = next((t[len(prefix):] for t in tags if t.startswith(prefix)), None)
