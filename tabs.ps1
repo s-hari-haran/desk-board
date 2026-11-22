@@ -13,8 +13,24 @@ $tabCond = New-Object Windows.Automation.PropertyCondition ($AE::ControlTypeProp
 $btnCond = New-Object Windows.Automation.PropertyCondition ($AE::ControlTypeProperty), ([Windows.Automation.ControlType]::Button)
 $memRe = '\s-\s(?:high memory usage|memory usage)\s-\s[\d.,]+\s?[KMG]B'
 
+$browsers = @("chrome", "msedge", "brave", "vivaldi", "opera", "opera_gx", "firefox", "arc", "chromium", "thorium", "librewolf", "waterfox", "zen", "floorp")
+$walker = [Windows.Automation.TreeWalker]::ControlViewWalker
+$docType = [Windows.Automation.ControlType]::Document
+
 function Get-Title($n) { ($n -replace $memRe, '').Trim() }
-function Get-Tabs($w) { @($w.FindAll($Scope::Descendants, $tabCond) | Where-Object { $_.Current.Name }) }
+# Only the tab strip at the top of the browser: skip "tabs" that live inside a web page (Gmail, Calendar side panels...)
+function Test-InPage($el) {
+  $p = $walker.GetParent($el)
+  for ($d = 0; $p -and $d -lt 40; $d++) {
+    if ($p.Current.ControlType -eq $docType) { return $true }
+    $p = $walker.GetParent($p)
+  }
+  return $false
+}
+function Get-Tabs($w) { @($w.FindAll($Scope::Descendants, $tabCond) | Where-Object { $_.Current.Name -and -not (Test-InPage $_) }) }
+function Test-Browser($w) {
+  try { $browsers -contains (Get-Process -Id $w.Current.ProcessId -ErrorAction Stop).ProcessName.ToLower() } catch { $false }
+}
 
 if ($mode -eq "close") {
   $want = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($name64))
@@ -47,6 +63,7 @@ $out = @()
 $classes = @("Chrome_WidgetWin_1", "MozillaWindowClass")
 foreach ($w in $AE::RootElement.FindAll($Scope::Children, [Windows.Automation.Condition]::TrueCondition)) {
   if ($classes -notcontains $w.Current.ClassName) { continue }
+  if (-not (Test-Browser $w)) { continue }     # Slack, Teams, VS Code... are built on Chrome too, but aren't browsers
   $i = 0
   foreach ($t in (Get-Tabs $w)) {
     $out += [pscustomobject]@{ pid = $w.Current.ProcessId; hwnd = $w.Current.NativeWindowHandle; name = $t.Current.Name; idx = $i }

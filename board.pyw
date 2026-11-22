@@ -1877,6 +1877,7 @@ class DeskBoard:
         p, cv, _ = self.rounded_window(DESK_HI)
         self.popup = self.mem_popup = p
         self.mem_state, self.tabs, self.tabs_busy, self.tabs_gone = {}, [], False, {}
+        self.tabs_gen, self.mem_hold = 0, 0.0
         self.mem_open = getattr(self, "mem_open", set())       # browsers whose tabs are shown
         self.mem_all = set()                                   # browsers showing every tab
         cv.bind("<Button-1>", lambda e: self.mem_click(p, cv))
@@ -1888,7 +1889,9 @@ class DeskBoard:
         p.geometry(f"+{int(self.left + min(x1, self.W - s(16)) - pw)}+{int(self.top + y1 + s(10))}")
         self.mem_top = y1 + s(10)
         p.focus_force()
-        p.bind("<FocusOut>", lambda e: self.root.after(80, lambda: self.popup is p and p.focus_get() is None and self.close_popup()))
+        # click outside closes the panel, but not while a tab is closing (the browser can grab focus for a moment)
+        p.bind("<FocusOut>", lambda e: self.root.after(80, lambda: self.popup is p and p.focus_get() is None
+                                                        and dt.datetime.now().timestamp() > self.mem_hold and self.close_popup()))
         self.load_tabs(p, cv)
 
         def tick(n=1):
@@ -1903,11 +1906,18 @@ class DeskBoard:
     def load_tabs(self, p, cv):
         """Reads the open browser tabs in the background (about half a second)."""
         if self.tabs_busy:
+            self.tabs_again = True
             return
-        self.tabs_busy = True
+        self.tabs_busy, self.tabs_again = True, False
+        gen = self.tabs_gen
 
         def done(out):
             self.tabs_busy = False
+            if gen != self.tabs_gen:
+                # a tab was closed while this list was being read, so it's out of date: read again
+                if self.popup is p:
+                    self.load_tabs(p, cv)
+                return
             try:
                 rows = json.loads(out or "[]")
             except ValueError:
@@ -2058,8 +2068,14 @@ class DeskBoard:
             t = self.tab_index[tab]
             g = (t["hwnd"], t["title"], t["idx"])
             self.tabs_gone[g] = "closing"                         # hide it right away
+            self.mem_hold = dt.datetime.now().timestamp() + 6
 
             def closed(out):
+                self.tabs_gen += 1
+                self.mem_hold = dt.datetime.now().timestamp() + 1.5
+                if self.popup is p:                               # take focus back from the browser
+                    user32.SetForegroundWindow(self.hwnd)
+                    p.focus_force()
                 if (out or "").strip().endswith("OK"):
                     self.tabs_gone[g] = "done"                    # stays hidden until the next fresh list
                 else:                                             # it didn't close: show it again and say so
