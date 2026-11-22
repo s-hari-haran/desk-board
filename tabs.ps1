@@ -44,19 +44,52 @@ if ($mode -eq "close") {
     if ($d -lt $dist) { $best = $tabs[$i]; $dist = $d }
   }
   if (-not $best) { 'NONE'; exit }
-  # the close button: the one named "Close" if there is one, otherwise the last button (mute buttons come first)
-  $btns = @($best.FindAll($Scope::Descendants, $btnCond))
-  $b = $btns | Where-Object { $_.Current.Name -match 'close' } | Select-Object -Last 1
-  if (-not $b) { $b = $btns | Select-Object -Last 1 }
-  if (-not $b) { 'NONE'; exit }
   $before = $tabs.Count
-  $b.GetCurrentPattern([Windows.Automation.InvokePattern]::Pattern).Invoke()
-  for ($k = 0; $k -lt 15; $k++) {           # wait up to 1.5 s for the tab to disappear
-    Start-Sleep -Milliseconds 100
-    try { if ((Get-Tabs $w).Count -lt $before) { 'OK'; exit } }
-    catch { 'OK'; exit }                     # that was the last tab, so the whole window closed
+
+  # the tab's close button. Brave (and Chrome with narrow tabs) hides it on tabs you're not looking at,
+  # so look in the raw tree too, where hidden buttons still are.
+  function Find-Close($t) {
+    $btns = @($t.FindAll($Scope::Descendants, $btnCond))
+    $b = $btns | Where-Object { $_.Current.Name -match 'close' } | Select-Object -Last 1
+    if ($b) { return $b }
+    $raw = [Windows.Automation.TreeWalker]::RawViewWalker
+    $c = $raw.GetFirstChild($t)
+    $all = @()
+    while ($c) { if ($c.Current.ControlType -eq [Windows.Automation.ControlType]::Button) { $all += $c }; $c = $raw.GetNextSibling($c) }
+    $b = $all | Where-Object { $_.Current.Name -match 'close' } | Select-Object -Last 1
+    if ($b) { return $b }
+    if ($btns.Count -gt 1) { return $btns | Select-Object -Last 1 }   # unnamed: the close button comes after mute
+    return $null
   }
-  'STILL'; exit
+  function Wait-Gone {
+    for ($k = 0; $k -lt 15; $k++) {          # wait up to 1.5 s for the tab to disappear
+      Start-Sleep -Milliseconds 100
+      try { if ((Get-Tabs $w).Count -lt $before) { return $true } }
+      catch { return $true }                  # that was the last tab, so the whole window closed
+    }
+    return $false
+  }
+  function Press($b) {
+    try { $b.GetCurrentPattern([Windows.Automation.InvokePattern]::Pattern).Invoke(); return $true } catch { return $false }
+  }
+
+  # 1) the close button is showing: press it
+  $shown = @($best.FindAll($Scope::Descendants, $btnCond)) | Where-Object { $_.Current.Name -match 'close' } | Select-Object -Last 1
+  if ($shown -and (Press $shown) -and (Wait-Gone)) { 'OK'; exit }
+
+  # 2) the button is hidden: switch to that tab for a moment, close it, then switch back to the tab you were on
+  $was = $tabs | Where-Object { try { $_.GetCurrentPattern([Windows.Automation.SelectionItemPattern]::Pattern).Current.IsSelected } catch { $false } } | Select-Object -First 1
+  if ($was -and [Windows.Automation.Automation]::Compare($was, $best)) { $was = $null }   # it was already the one in front
+  try { $best.GetCurrentPattern([Windows.Automation.SelectionItemPattern]::Pattern).Select() } catch { 'NONE'; exit }
+  Start-Sleep -Milliseconds 150
+  $b = Find-Close $best
+  if (-not $b -or -not (Press $b)) { 'NONE'; exit }
+  $ok = Wait-Gone
+  if ($was) {
+    try { $was.GetCurrentPattern([Windows.Automation.SelectionItemPattern]::Pattern).Select() } catch {}
+  }
+  if ($ok) { 'OK' } else { 'STILL' }
+  exit
 }
 
 $out = @()
